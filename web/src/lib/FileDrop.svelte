@@ -20,7 +20,9 @@
 
         file =
             ev.dataTransfer.items?.[0]?.getAsFile() ??
-            ev.dataTransfer.files?.[0];
+            ev.dataTransfer.files?.[0] ?? null;
+
+        console.log(ev);
     };
 
     let ref = 0

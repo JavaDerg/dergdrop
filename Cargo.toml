@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.32.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.32.0", features = ["rt-multi-thread", "macros", "sync"] }
+futures-util = "0.3.28"
 
 axum = { version = "0.6.20", features = ["tracing"] }
 
@@ -17,3 +18,10 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
 eyre = "0.6.8"
 color-eyre = "0.6.2"
+
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
+
+moka = { version = "0.12.0", features = ["future"] }
+smallvec = "1.11.1"
+
+serde = "1.0.188"
