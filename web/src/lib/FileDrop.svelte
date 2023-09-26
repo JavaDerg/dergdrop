@@ -52,6 +52,6 @@
             Files uploaded here are encrypted and will be deleted after their
             download
         </p>
-        <button class="btn">Upload</button>
+        <input type="file" class="file-input file-input-bordered" on:change={console.log} />
     </div>
 </div>

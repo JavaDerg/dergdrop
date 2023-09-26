@@ -2,6 +2,7 @@
     import { fly } from "svelte/transition";
     import sodium from "libsodium-wrappers";
     import { MetaPacker } from "./meta";
+    import { newCompressorStream } from "./streams";
 
     let progress: number | null = null;
 
@@ -22,7 +23,8 @@
         const key = sodium.crypto_secretstream_xchacha20poly1305_keygen();
         const { state, header } = sodium.crypto_secretstream_xchacha20poly1305_init_push(key);
 
-        const fr = file.stream().getReader();
+        // schleber hier einfügen :3
+        const fr = newCompressorStream(file.stream(), 1024*1024).getReader();
 
         let pos = 0;
 
@@ -59,23 +61,23 @@
             }
         });
 
-        const id = await (await fetch("http://localhost:8008/api/upload", {
+        const id = await (await fetch("/api/upload", {
             method: "POST",
         })).text();
 
         let reader = stream.getReader();
         while(true) {
-            let {value, done} = (await reader.read());
+            const {value, done} = (await reader.read());
 
             if (done) break;
 
-            return await fetch(`http://localhost:8008/api/upload/${id}`, {
+            await fetch(`/api/upload/${id}`, {
                 body: value,
                 method: "PATCH",
             });
         }
 
-        await fetch(`http://localhost:8008/api/upload/${id}`, {
+        await fetch(`/api/upload/${id}`, {
             method: "PATCH",
         });
     };
@@ -91,7 +93,10 @@
         {#if progress === null}
             <span class="loading loading-spinner loading-lg"></span>
         {:else}
-            <progress class="progress w-56" value={progress} max="100"></progress>
+            <span class="flex flex-col gap-5">
+                <h1 class="text-3xl">Uploading...</h1>
+                <progress class="progress w-56" value={progress} max="100"></progress>
+            </span>
         {/if}
     </div>
 </div>

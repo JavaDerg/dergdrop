@@ -28,7 +28,8 @@ impl DataStore {
     pub async fn init_store(&self) -> eyre::Result<Uuid> {
         let id = Uuid::new_v4();
 
-        let file = tokio::fs::File::create(format!("./data/{id}")).await?;
+        // let file = tokio::fs::File::create(format!("./data/{id}")).await?;
+        let file = tokio::fs::File::create("/dev/null").await?;
 
         let writer = Arc::new(Mutex::new(WriterState {
             writer: Box::new(file),
