@@ -1,13 +1,16 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use eyre::Report;
+use std::fmt::{Debug, Display, Formatter};
 use tracing::error;
-use uuid::{uuid, Uuid};
+use uuid::Uuid;
 
 pub type Result<T> = std::result::Result<T, WebReport>;
 
-pub struct WebReport(eyre::Report);
+#[derive(Debug)]
+pub struct WebReport(Report);
 
-impl<T: Into<eyre::Report>> From<T> for WebReport {
+impl<T: Into<Report>> From<T> for WebReport {
     fn from(value: T) -> Self {
         Self(value.into())
     }

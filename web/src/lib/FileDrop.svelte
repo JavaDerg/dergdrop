@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fly } from 'svelte/transition';
+    import { showOpenFilePicker } from "native-file-system-adapter";
 
     let over = false;
 
@@ -34,6 +35,12 @@
         if (--ref === 0)
             over = false;
     };
+
+    const upload = async () => {
+        let res = await showOpenFilePicker();
+
+        console.log(res);
+    };
 </script>
 
 <div
@@ -52,6 +59,6 @@
             Files uploaded here are encrypted and will be deleted after their
             download
         </p>
-        <input type="file" class="file-input file-input-bordered" on:change={console.log} />
+        <button class="btn btn-primary" on:click={upload}>Upload</button>
     </div>
 </div>

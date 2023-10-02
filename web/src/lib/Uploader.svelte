@@ -23,8 +23,7 @@
         const key = sodium.crypto_secretstream_xchacha20poly1305_keygen();
         const { state, header } = sodium.crypto_secretstream_xchacha20poly1305_init_push(key);
 
-        // schleber hier einfügen :3
-        const fr = newCompressorStream(file.stream(), 1024*1024).getReader();
+        const fr = newCompressorStream(file.stream(), 1024 * 1024).getReader();
 
         let pos = 0;
 
