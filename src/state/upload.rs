@@ -1,15 +1,8 @@
-use crate::state::{StateHandle, StateReq, UploadStateLease};
-use axum::extract::{FromRequestParts, Path};
-use axum::http::request::Parts;
-use axum::http::StatusCode;
-use sqlx::PgPool;
 use std::path::PathBuf;
-use axum::response::Response;
-use flume::bounded;
+
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tracing::error;
-use uuid::Uuid;
 
 pub struct UploadState {
     file: Option<(File, PathBuf)>,

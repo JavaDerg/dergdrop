@@ -1,15 +1,15 @@
 mod upload;
 
-use flume::{bounded, Receiver, Sender};
-use std::collections::{BTreeMap, HashMap};
-use std::mem::swap;
-use std::time::Duration;
 use axum::extract::{FromRequestParts, Path};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use flume::{bounded, Receiver, Sender};
 use sqlx::PgPool;
-use tokio::time::{sleep, sleep_until, Instant};
+use std::collections::{BTreeMap, HashMap};
+use std::mem::swap;
+use std::time::Duration;
+use tokio::time::{sleep_until, Instant};
 use uuid::Uuid;
 
 pub use upload::UploadState;
@@ -39,8 +39,8 @@ pub struct StateHandle {
 impl StateHandle {
     pub fn start_new() -> Self {
         let mut state = State {
-            states: Default::default(),
-            timeouts: Default::default(),
+            states: HashMap::default(),
+            timeouts: BTreeMap::default(),
         };
 
         let (tx, rx) = bounded(64);
@@ -63,7 +63,7 @@ impl State {
                     Ok(req) => self.handle_req(req).await,
                     Err(_) => return,
                 },
-                _ = self.timeout_routine() => (),
+                () = self.timeout_routine() => (),
             }
         }
     }
@@ -109,7 +109,7 @@ impl State {
                 };
                 self.timeouts.remove(&evict);
 
-                let _ = resp.send_async(Some(state));
+                let _ = resp.send_async(Some(state)).await;
             }
         }
     }
@@ -117,11 +117,15 @@ impl State {
 
 impl UploadStateLease {
     pub async fn submit(&mut self, data: &[u8]) -> eyre::Result<()> {
-        Ok(self.state.as_mut().unwrap().submit(data).await?)
+        self.state.as_mut().unwrap().submit(data).await
     }
 
     pub async fn complete(mut self) -> eyre::Result<()> {
-        Ok(self.state.take().unwrap().complete().await?)
+        self.state.take().unwrap().complete().await
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
     }
 }
 
@@ -133,12 +137,21 @@ impl FromRequestParts<(StateHandle, PgPool)> for UploadStateLease {
         parts: &mut Parts,
         state: &(StateHandle, PgPool),
     ) -> Result<Self, Self::Rejection> {
-        let Path(id) = Path::<Uuid>::from_request_parts(parts, state).await.map_err(|resp| resp.into_response())?;
+        let Path(id) = Path::<Uuid>::from_request_parts(parts, state)
+            .await
+            .map_err(IntoResponse::into_response)?;
 
         let (tx, rx) = bounded(0);
-        state.0.sender.send_async(StateReq::Get(id, tx)).await.expect("this service should be available");
+        state
+            .0
+            .sender
+            .send_async(StateReq::Get(id, tx))
+            .await
+            .expect("this service should be available");
 
-        let Ok(Some(up_state)) = rx.recv_async().await else { return Err(StatusCode::NOT_FOUND.into_response()) };
+        let Ok(Some(up_state)) = rx.recv_async().await else {
+            return Err(StatusCode::NOT_FOUND.into_response());
+        };
 
         Ok(UploadStateLease {
             id,

@@ -1,22 +1,22 @@
 #![deny(clippy::all, clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
 #![feature(try_blocks)]
 
 mod err;
 mod state;
 
 use crate::state::{StateHandle, UploadState, UploadStateLease};
-use axum::extract::{Path, State};
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{patch, post};
-use axum::{Router, Server, ServiceExt};
+use axum::{Router, Server};
 use bytes::Bytes;
-use futures_util::StreamExt;
-use sqlx::{PgPool, query};
-use std::io::Write;
+
+use sqlx::{query, PgPool};
 use std::path::PathBuf;
 use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
+
 use tracing_subscriber::{fmt, EnvFilter};
 use uuid::Uuid;
 
@@ -52,7 +52,10 @@ pub struct ChunkParams {
     pub start: usize,
 }
 
-async fn init_upload(State((sh, db)): State<(StateHandle, PgPool)>, meta: Bytes) -> err::Result<Response> {
+async fn init_upload(
+    State((sh, db)): State<(StateHandle, PgPool)>,
+    meta: Bytes,
+) -> err::Result<Response> {
     if meta.len() > 4096 {
         return Ok((
             StatusCode::BAD_REQUEST,
@@ -62,7 +65,13 @@ async fn init_upload(State((sh, db)): State<(StateHandle, PgPool)>, meta: Bytes)
     }
 
     let id = Uuid::now_v7();
-    query!("INSERT INTO files (id, meta) VALUES ($1, $2)", id, &meta[..]).execute(&db).await?;
+    query!(
+        "INSERT INTO files (id, meta) VALUES ($1, $2)",
+        id,
+        &meta[..]
+    )
+    .execute(&db)
+    .await?;
 
     let path = PathBuf::from(format!("./data/{id}"));
     let ups = UploadState::new(File::open(&path).await?, path);
@@ -72,11 +81,25 @@ async fn init_upload(State((sh, db)): State<(StateHandle, PgPool)>, meta: Bytes)
     Ok(().into_response())
 }
 
-async fn submit_chunk(mut usl: UploadStateLease, segment: Bytes) -> err::Result<()> {
+async fn submit_chunk(
+    State((_, db)): State<(StateHandle, PgPool)>,
+    mut usl: UploadStateLease,
+    segment: Bytes,
+) -> err::Result<()> {
     if !segment.is_empty() {
         usl.submit(&segment).await?;
-    } else {
-        usl.complete().await?;
+        return Ok(());
     }
+
+    let id = usl.id();
+    usl.complete().await?;
+
+    query!(
+        "UPDATE files SET completed = now() WHERE id = $1",
+        id,
+    )
+    .execute(&db)
+    .await?;
+
     Ok(())
 }
