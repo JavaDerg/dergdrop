@@ -1,7 +1,7 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use eyre::Report;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use tracing::error;
 use uuid::Uuid;
 
