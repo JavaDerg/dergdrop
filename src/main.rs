@@ -6,7 +6,7 @@ mod err;
 mod state;
 
 use crate::state::{StateHandle, UploadState, UploadStateLease};
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{patch, post};
@@ -16,6 +16,7 @@ use bytes::Bytes;
 use sqlx::{query, PgPool};
 use std::path::PathBuf;
 use tokio::fs::File;
+use tracing::info;
 
 use tracing_subscriber::{fmt, EnvFilter};
 use uuid::Uuid;
@@ -64,6 +65,8 @@ async fn init_upload(
             .into_response());
     }
 
+    info!("starting upload");
+
     let id = Uuid::now_v7();
     query!(
         "INSERT INTO files (id, meta) VALUES ($1, $2)",
@@ -74,15 +77,19 @@ async fn init_upload(
     .await?;
 
     let path = PathBuf::from(format!("./data/{id}"));
-    let ups = UploadState::new(File::open(&path).await?, path);
+    let ups = UploadState::new(File::create(&path).await?, path);
 
     sh.insert(id, ups).await;
 
-    Ok(().into_response())
+    info!("uploading under {}", id);
+
+    Ok(id.to_string().into_response())
 }
 
+#[tracing::instrument(skip_all, fields(id))]
 async fn submit_chunk(
     State((_, db)): State<(StateHandle, PgPool)>,
+    Path(id): Path<Uuid>,
     mut usl: UploadStateLease,
     segment: Bytes,
 ) -> err::Result<()> {
@@ -90,6 +97,8 @@ async fn submit_chunk(
         usl.submit(&segment).await?;
         return Ok(());
     }
+
+    info!("segment submitted");
 
     let id = usl.id();
     usl.complete().await?;

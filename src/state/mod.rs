@@ -82,7 +82,7 @@ impl State {
 
             let dur = match self.timeouts.first_key_value() {
                 Some(((expire, _), _)) => *expire,
-                None => Instant::now() + Duration::MAX,
+                None => Instant::now() + Duration::from_secs(24 * 3600), // 24h because MAX leads to overflow
             };
 
             sleep_until(dur).await;
@@ -163,9 +163,11 @@ impl FromRequestParts<(StateHandle, PgPool)> for UploadStateLease {
 
 impl Drop for UploadStateLease {
     fn drop(&mut self) {
+        let Some(state) = self.state.take() else { return };
+
         let _ = self
             .handle
             .sender
-            .send(StateReq::Insert(self.id, self.state.take().unwrap()));
+            .send(StateReq::Insert(self.id, state));
     }
 }

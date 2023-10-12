@@ -1,13 +1,17 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
     import sodium from "libsodium-wrappers";
-    import { newEncryptingStream, newCompressorStream as newRechunkingStream } from "./streams";
+    import {
+        newEncryptingStream,
+        newCompressorStream as newRechunkingStream,
+    } from "./streams";
+    import { upload } from "./upload";
 
     let progress: number | null = null;
 
     export let file: File | null;
 
-    $: if(file) uploadFile(file);
+    $: if (file) uploadFile(file);
 
     let uploading = false;
 
@@ -17,30 +21,42 @@
         if (uploading) return;
         uploading = true;
 
+        const CHUNK_SIZE = 1024 * 1024;
 
-        const chunked = newRechunkingStream(file.stream(), 1024 * 1024);
-        const { stream: encrypted, meta, key } = newEncryptingStream(chunked, {
+        const chunked = newRechunkingStream(file.stream(), CHUNK_SIZE);
+        const {
+            stream: encrypted,
+            meta,
+            key,
+        } = newEncryptingStream(chunked, {
             filename: file.name,
             filesize: file.size,
         });
 
-        // TODO: Upload
+        const expected_chunks = Math.ceil(file.size / CHUNK_SIZE);
+
+        upload(
+            meta,
+            encrypted,
+            expected_chunks,
+            (p) => (progress = p * 100)
+        );
     };
 </script>
 
 <div
     class="hero-content text-center min-w-full min-h-full
-            rounded-2xl 
+            rounded-2xl
             border-dashed"
-            in:fly={{ y: -100 }}
-    >
-        <div class="max-w-md">
+    in:fly={{ y: -100 }}
+>
+    <div class="max-w-md">
         {#if progress === null}
-            <span class="loading loading-spinner loading-lg"></span>
+            <span class="loading loading-spinner loading-lg" />
         {:else}
             <span class="flex flex-col gap-5">
                 <h1 class="text-3xl">Uploading...</h1>
-                <progress class="progress w-56" value={progress} max="100"></progress>
+                <progress class="progress w-56" value={progress} max="100" />
             </span>
         {/if}
     </div>
