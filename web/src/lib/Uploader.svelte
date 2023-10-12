@@ -1,7 +1,6 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
     import sodium from "libsodium-wrappers";
-    import { MetaPacker } from "./meta";
     import { newEncryptingStream, newCompressorStream as newRechunkingStream } from "./streams";
 
     let progress: number | null = null;
