@@ -5,11 +5,13 @@
         newEncryptingStream,
         newCompressorStream as newRechunkingStream,
     } from "./streams";
-    import { upload } from "./upload";
+    import { upload, type UploadMode } from "./upload";
 
     let progress: number | null = null;
 
     export let file: File | null;
+
+    export let url: string | null;
 
     $: if (file) uploadFile(file);
 
@@ -35,12 +37,14 @@
 
         const expected_chunks = Math.ceil(file.size / CHUNK_SIZE);
 
-        upload(
+        let id = await upload(
             meta,
             encrypted,
             expected_chunks,
-            (p) => (progress = p * 100)
+            (p) => (progress = p * 100),
         );
+
+        url = `${location.protocol}//${location.host}/${id}#${key}`;
     };
 </script>
 

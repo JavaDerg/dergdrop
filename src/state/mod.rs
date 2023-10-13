@@ -163,11 +163,10 @@ impl FromRequestParts<(StateHandle, PgPool)> for UploadStateLease {
 
 impl Drop for UploadStateLease {
     fn drop(&mut self) {
-        let Some(state) = self.state.take() else { return };
+        let Some(state) = self.state.take() else {
+            return;
+        };
 
-        let _ = self
-            .handle
-            .sender
-            .send(StateReq::Insert(self.id, state));
+        let _ = self.handle.sender.send(StateReq::Insert(self.id, state));
     }
 }

@@ -49,9 +49,9 @@ export function newCompressorStream(stream: ByteStream, size: number): ByteStrea
 export function newEncryptingStream(stream: ByteStream, meta: Meta): { key: string, meta: Uint8Array, stream: ByteStream } {
     const master_key = sodium.crypto_kdf_keygen();
 
-    const meta_key = sodium.crypto_kdf_derive_from_key(sodium.crypto_secretbox_KEYBYTES, 0, "meta", master_key);
-    const stream_key = sodium.crypto_kdf_derive_from_key(sodium.crypto_secretstream_xchacha20poly1305_KEYBYTES, 1, "stream", master_key);
-
+    // context has to be 8 bytes
+    const meta_key = sodium.crypto_kdf_derive_from_key(sodium.crypto_secretbox_KEYBYTES, 0, "meta____", master_key);
+    const stream_key = sodium.crypto_kdf_derive_from_key(sodium.crypto_secretstream_xchacha20poly1305_KEYBYTES, 1, "stream__", master_key);
 
     const { state, header } = sodium.crypto_secretstream_xchacha20poly1305_init_push(stream_key);
 
@@ -59,7 +59,8 @@ export function newEncryptingStream(stream: ByteStream, meta: Meta): { key: stri
     meta.header = header_base64;
 
 
-    const meta_plaintext = JSON.stringify(meta);
+    const meta_unpadded = sodium.from_string(JSON.stringify(meta));
+    const meta_plaintext = sodium.pad(meta_unpadded, 4096 - sodium.crypto_secretbox_MACBYTES);
     const meta_ciphertext =
         sodium.crypto_secretbox_easy(
             meta_plaintext,

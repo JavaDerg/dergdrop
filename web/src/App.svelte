@@ -4,23 +4,32 @@
     import Uploader from "./lib/Uploader.svelte";
     import sodium from "libsodium-wrappers";
     import { onMount } from "svelte";
+    import Done from "./lib/Done.svelte";
+    import Download from "./lib/Download.svelte";
 
     let ready: boolean = false;
 
     let file: File | null = null;
+    let final_url: string | null = null;
 
     onMount(async () => {
         await sodium.ready;
         ready = true;
-    })
+
+        window.sodium = sodium;
+    });
 </script>
 
 <main class="hero min-h-screen p-10" on:dragover={preventDefault}>
     {#if ready}
-        {#if file === null}
+        {#if location.hash !== ""}
+            <Download />
+        {:else if final_url !== null}
+            <Done bind:url={final_url} />
+        {:else if file === null}
             <FileDrop bind:file />
         {:else}
-            <Uploader bind:file />
+            <Uploader bind:file bind:url={final_url} />
         {/if}
     {:else}
         <div

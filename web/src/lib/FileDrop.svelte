@@ -22,8 +22,6 @@
         file =
             ev.dataTransfer.items?.[0]?.getAsFile() ??
             ev.dataTransfer.files?.[0] ?? null;
-
-        console.log(ev);
     };
 
     let ref = 0
@@ -39,7 +37,11 @@
     const upload = async () => {
         let res = await showOpenFilePicker();
 
-        console.log(res);
+        if (res.length !== 1) {
+            return;
+        }
+        
+        file = await res[0].getFile();
     };
 </script>
 
