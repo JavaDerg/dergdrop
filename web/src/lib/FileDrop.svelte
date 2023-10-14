@@ -20,8 +20,9 @@
         }
 
         file =
-            ev.dataTransfer.items?.[0]?.getAsFile() ??
-            ev.dataTransfer.files?.[0] ?? null;
+            ev.dataTransfer.items?.[0]?.getAsFile()
+            ?? ev.dataTransfer.files?.[0]
+            ?? null;
     };
 
     let ref = 0

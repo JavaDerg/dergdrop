@@ -5,9 +5,9 @@
 
     let timeout: number | null = null;
 
-    const select = () => {
-        const link_box = document.getElementById("link-box");
+    let link_box: HTMLInputElement;
 
+    const select = () => {
         if (typeof link_box !== "object") return;
 
         link_box.focus();
@@ -34,10 +34,10 @@
         <span class="flex flex-col gap-5">
             <h1 class="text-3xl">Done!</h1>
             
-            <div class="{typeof timeout === "number"  ? "tooltip" : ""} tooltip-bottom tooltip-open" data-tip="Link copied to clipboard!">
+            <div class="{typeof timeout === "number" ? "tooltip" : ""} tooltip-bottom tooltip-open" data-tip="Link copied to clipboard!">
                 <div class="join">
                     <div class="input input-success whitespace-nowrap flex items-center bg-base-200 w-full join-item">
-                        <input id="link-box" class="bg-transparent input border-0 p-0 w-full" value={url}>
+                        <input bind:this={link_box} id="link-box" class="bg-transparent input border-0 p-0 w-full" value={url}>
                     </div>
                     <input type="button" class="btn btn-secondary join-item" value="Copy" on:click={select}>
                 </div>
@@ -49,5 +49,4 @@
             <a href="/" class="link link-primary">Upload another file</a>
         </span>
     </div>
-
 </div>

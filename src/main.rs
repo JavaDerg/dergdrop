@@ -2,7 +2,9 @@
 #![allow(clippy::module_name_repetitions)]
 #![feature(try_blocks)]
 
+mod dlstream;
 mod err;
+mod header;
 mod state;
 
 use crate::state::{StateHandle, UploadState, UploadStateLease};
@@ -13,12 +15,15 @@ use axum::routing::{get, patch, post};
 use axum::{Router, Server};
 use bytes::Bytes;
 
+use axum::body::{Body, BoxBody, StreamBody};
 use axum::extract::ws::Message;
+use header::Range;
 use sqlx::{query, PgPool};
 use std::path::PathBuf;
 use tokio::fs::File;
 use tracing::{error, info, warn};
 
+use crate::dlstream::FileStream;
 use tracing_subscriber::{fmt, EnvFilter};
 use uuid::Uuid;
 
@@ -37,6 +42,7 @@ async fn main() -> eyre::Result<()> {
         .route("/api/upload/ws", get(ws_upload))
         .route("/api/upload", post(init_upload))
         .route("/api/upload/:id", patch(submit_chunk))
+        .route("/api/download/:id", get(download_file))
         .route("/api/download/:id/meta", get(get_meta))
         .with_state((handle, db));
 
@@ -182,6 +188,15 @@ async fn get_meta(
     Ok(meta)
 }
 
+#[axum::debug_handler]
+async fn download_file(
+    Path(id): Path<Uuid>,
+    range: Option<Range>,
+) -> err::Result<StreamBody<FileStream>> {
+    let file = File::open(format!("./data/{id}")).await?;
+    Ok(StreamBody::new(FileStream::new(file)))
+}
+
 async fn bootstrap_upload(db: &PgPool, meta: &[u8]) -> eyre::Result<(Uuid, UploadState)> {
     let id = Uuid::now_v7();
 
@@ -190,7 +205,7 @@ async fn bootstrap_upload(db: &PgPool, meta: &[u8]) -> eyre::Result<(Uuid, Uploa
         .await?;
 
     let path = PathBuf::from(format!("./data/{id}"));
-    let ups = UploadState::new(File::create(&path).await?, path);
+    let ups = UploadState::new(File::create(&path).await?, path, db.clone());
 
     Ok((id, ups))
 }

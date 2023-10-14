@@ -3,7 +3,7 @@ import type { Meta } from './meta';
 
 export type ByteStream = ReadableStream<Uint8Array>;
 
-export function newCompressorStream(stream: ByteStream, size: number): ByteStream {
+export function newChunkingStream(stream: ByteStream, size: number): ByteStream {
     const reader = stream.getReader();
 
     let leftover: Uint8Array | null = null;
@@ -14,9 +14,15 @@ export function newCompressorStream(stream: ByteStream, size: number): ByteStrea
             let filled = 0;
 
             if (leftover !== null) {
-                buffer.set(leftover);
-                filled += leftover.length;
-                leftover = null;
+                const available = Math.min(buffer.length, leftover.length);
+
+                buffer.set(leftover.subarray(0, available));
+                filled += available;
+                leftover = leftover.subarray(available);
+
+                if (leftover.length === 0) {
+                    leftover = null;
+                }
             }
 
             while (filled < buffer.length) {
@@ -32,6 +38,8 @@ export function newCompressorStream(stream: ByteStream, size: number): ByteStrea
 
                 buffer.set(value.subarray(0, needed), filled);
                 filled += needed;
+
+                console.log(value.length, "-" , needed, "=", value.subarray(needed).length);
                 leftover = value.subarray(needed);
                 break;
             }
@@ -76,24 +84,23 @@ export function newEncryptingStream(stream: ByteStream, meta: Meta): { key: stri
             const { value, done } = await reader.read();
 
             if (done) {
-                const ciphertext = 
-                    sodium.crypto_secretstream_xchacha20poly1305_push(
-                        state,
-                        new Uint8Array(),
-                        null,
-                        sodium.crypto_secretstream_xchacha20poly1305_TAG_FINAL,
-                    );
-                controller.enqueue(ciphertext);
                 controller.close();
                 return;
             }
+            
+            const tag =
+                // this is sloppy
+                value.length === 1024 * 1024
+                ? sodium.crypto_secretstream_xchacha20poly1305_TAG_PUSH
+                : sodium.crypto_secretstream_xchacha20poly1305_TAG_FINAL;
+                
 
             const ciphertext =
                 sodium.crypto_secretstream_xchacha20poly1305_push(
                     state,
                     value,
                     null,
-                    sodium.crypto_secretstream_xchacha20poly1305_TAG_PUSH,
+                    tag,
                 );
             controller.enqueue(ciphertext);
         }
@@ -104,4 +111,35 @@ export function newEncryptingStream(stream: ByteStream, meta: Meta): { key: stri
         meta: meta_ciphertext,
         stream: out_stream,
     };
+}
+
+export function newDecryptingStream(stream: ByteStream, header_base64: string, stream_key: Uint8Array): ByteStream {
+    const header = sodium.from_base64(header_base64);
+    const state = sodium.crypto_secretstream_xchacha20poly1305_init_pull(header, stream_key);
+
+    const reader = stream.getReader();
+
+    return new ReadableStream({
+        async pull(controller) {
+            const { value, done } = await reader.read();
+            if (done) {
+                controller.error("no final tag");
+                throw "no final tag";
+            }
+
+            const { message, tag } = sodium.crypto_secretstream_xchacha20poly1305_pull(state, value);
+            controller.enqueue(message);
+
+            if (tag !== sodium.crypto_secretstream_xchacha20poly1305_TAG_FINAL) {
+                return;
+            }
+
+            if (!(await reader.read()).done) {
+                controller.error("stream not done but stream says it is");
+                throw "stream not done but stream says it is";
+            }
+
+            controller.close();
+        }
+    });
 }

@@ -3,7 +3,7 @@
     import sodium from "libsodium-wrappers";
     import {
         newEncryptingStream,
-        newCompressorStream as newRechunkingStream,
+        newChunkingStream,
     } from "./streams";
     import { upload, type UploadMode } from "./upload";
 
@@ -25,7 +25,7 @@
 
         const CHUNK_SIZE = 1024 * 1024;
 
-        const chunked = newRechunkingStream(file.stream(), CHUNK_SIZE);
+        const chunked = newChunkingStream(file.stream(), CHUNK_SIZE);
         const {
             stream: encrypted,
             meta,
